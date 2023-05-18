@@ -1,0 +1,22 @@
+---
+- name: Playbook OCP Health Check
+  hosts: localhost
+
+  vars:
+    elastic: "false"
+    ocp_user_token:
+    ocp_api_url:
+
+
+  environment:
+    KUBECONFIG: "{{ kubeconfig_file }}"
+
+  tasks:
+
+- name: Login into cluster
+  shell: |
+    oc login --token {{ ocp_user_token }} {{ ocp_api_url }} --insecure-skip-tls-verify
+  no_log: true
+
+  - name: OCP Health Check
+    import_tasks: healthcheck.yml

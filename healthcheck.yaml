@@ -1,0 +1,129 @@
+---
+
+- name: Check cluster operators
+  shell: |
+    oc get co | egrep -v 'True\s+False\s+False' | wc -l | egrep '^1'
+  register: cluster_operators_state
+  retries: 3
+  delay: 10
+  until: cluster_operators_state.stdout == "1"
+  tags: always
+ 
+- name: Check Machine Config Pool
+  shell: |
+    oc get mcp | egrep -v 'True\s+False\s+False' | wc -l | egrep '^1'
+  register: mcp_state
+  retries: 3
+  delay: 10
+  until: mcp_state.stdout == "1"
+  tags: always
+
+- name: Check Cluster Version
+  shell: |
+    oc get clusterversion | egrep -v "Cluster version is" | wc -l | egrep '^1'
+  register: cluster_version_state
+  retries: 3
+  delay: 10
+  until: cluster_version_state.stdout == "1"
+  tags: always
+
+- name: Check if ceph is in an OK state
+  shell: |
+    export NAMESPACE=openshift-storage
+    export ROOK_POD=$(oc -n ${NAMESPACE} get pod -l app=rook-ceph-operator -o jsonpath='{.items[0].metadata.name}')
+    oc  exec ${ROOK_POD} -n ${NAMESPACE} -- ceph status --cluster=${NAMESPACE} --conf=/var/lib/rook/${NAMESPACE}/${NAMESPACE}.config --keyring=/var/lib/rook/${NAMESPACE}/client.admin.keyring  | grep HEALTH_OK
+  args:
+    executable: /bin/bash
+  register: ocs_odf_operator_state
+  retries: 100
+  delay: 10
+  until: ocs_odf_operator_state.rc == 0
+  tags: always
+
+- name: Check ocs/odf pod
+  shell: |
+    oc get pods -n openshift-storage | egrep -v 'Running|^NAME|Completed' | wc -l
+  register: ocs_odf_operator_name
+  retries: 3
+  delay: 10
+  until: ocs_odf_operator_name.stdout == "0"
+  tags: always
+
+- name: get elastic pod
+  shell: |
+      oc get pods --no-headers -l component=elasticsearch -o wide -n openshift-logging | head -n 1 | awk '{print $1}'
+  register: elastic_pod
+  tags: always
+  when: elastic == true
+
+- name: add cluster routing to all
+  shell: |
+    oc exec -n openshift-logging {{ elastic_pod.stdout }} -- curl -s --key /etc/elasticsearch/secret/admin-key --cert /etc/elasticsearch/secret/admin-cert --cacert /etc/elasticsearch/secret/admin-ca -H "Content-Type: application/json" -XPUT "https://localhost:9200/_cluster/settings" -d '{ "persistent":{ "cluster.routing.allocation.enable" : "all" }}'
+  register: cluster_routing_all
+  retries: 60
+  delay: 10
+  until: cluster_routing_all.rc == 0
+  tags: always
+  when: elastic == true
+
+- name: Check if elastic is in an OK state
+  shell: |
+    oc exec -n openshift-logging {{ elastic_pod.stdout }} -c elasticsearch -- health | grep 'green'
+  args:
+    executable: /bin/bash
+  register: elastic_state
+  retries: 60
+  delay: 60
+  until: elastic_state.rc == 0
+  tags: always
+  when: elastic == true
+
+- name: Check if AlertManager is in an OK state
+  shell: |
+    oc -n openshift-monitoring exec -ti alertmanager-main-0 -c alertmanager -- amtool config show -o json --alertmanager.url http://localhost:9093 | jq .cluster.status | tr -d " \t\n\r" | grep 'ready'
+  args:
+    executable: /bin/bash
+  register: alertmanager_state
+  retries: 30
+  delay: 60
+  until: alertmanager_state.rc == 0
+  tags: always
+
+- name: Get all pods in all namespaces
+  k8s_info:
+    kind: Pod
+    field_selectors:
+      - status.phase!=Running
+      - status.phase!=Completed
+      - status.phase!=Succeeded
+  register: pods
+
+- name: Print debug message not running pods
+  debug:
+    msg: "Pod {{ item.metadata.name }} in namespace {{ item.metadata.namespace }} is {{ item.status.phase }}"
+  loop: "{{ pods.resources }}"
+  loop_control:
+    label: "{{ item.kind }}"
+
+- name: check if cluster is Health
+  assert: 
+    that:
+      - cluster_operators_state.stdout == "1"
+      - mcp_state.stdout == "1"
+      - cluster_version_state.stdout == "1"
+      - ocs_odf_operator_state.rc == 0
+      - ocs_odf_operator_name.stdout == "0"
+      - alertmanager_state.rc == 0
+    success_msg: 
+    - "all Cluster Operators is in good condition"
+    - "all Machine Config Pool is in good condition"
+    - "ODF is in {{ ocs_odf_operator_state.stdout | replace(' health:','') | trim }}"
+    - "Elastic is green"
+    - "Alert Manager is ready"
+
+- name: check if Elastic is green
+  assert: 
+    that:
+      - elastic_state.rc == 0
+    success_msg: 
+    - "Elastic is green"
