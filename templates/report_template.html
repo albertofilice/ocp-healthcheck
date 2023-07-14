@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Health Check Report</title>
+    <style>
+        /* Bootstrap-like styles */
+        .table {
+            width: 100%;
+            margin-bottom: 1rem;
+            color: #212529;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            vertical-align: top;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .table thead th {
+            vertical-align: bottom;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table tbody + tbody {
+            border-top: 2px solid #dee2e6;
+        }
+
+        .table .table {
+            background-color: #fff;
+        }
+
+        .table-sm th,
+        .table-sm td {
+            padding: 0.3rem;
+        }
+
+        .table-bordered {
+            border: 1px solid #dee2e6;
+        }
+
+        .table-bordered th,
+        .table-bordered td {
+            border: 1px solid #dee2e6;
+        }
+
+        /* Additional styles */
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        /* Add any additional styles you need */
+
+    </style>
+</head>
+<body>
+    <p>Tale report viene generato da un playbook Ansible scritto da Alberto Filice insieme a ChatGPT.</p>
+    <p>Dopo diverse correzioni e fix, abbiamo creato un playbook che possa verificare lo stato del cluster, di ODF, e lo spazio rimanente sia di ODF e sia dei nodi.</p><br>
+    <table class="table table-bordered">
+        <tr>
+            <th>Website</th>
+            <th>Status Code</th>
+            <th>Status</th>
+        </tr>
+        {% for site in site_statuses %}
+        <tr>
+            <td>{{ site.site }}</td>
+            <td>{{ site.status_code }}</td>
+            <td class="{% if site.status_code == 200 %}passed{% else %}failed{% endif %}">
+                {% if site.status_code == 200 %}
+                    Passed
+                {% else %}
+                    Failed
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

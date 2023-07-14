@@ -1,0 +1,60 @@
+- name: Playbook OCP Health Check
+  hosts: localhost
+
+  vars:
+    site_urls: ""
+    mail_host: ""
+    mail_port: ""
+    mail_username: ""
+    mail_password: ""
+    mail_to: ""
+    mail_cc: ""
+    mail_sender: ""    
+
+  tasks:
+
+    - name: Health, readiness and info check
+      uri:
+        url: 'https://{{ item }}'
+        status_code: 200
+        return_content: no
+      ignore_errors: yes
+      retries: 3
+      delay: 30
+      register: result
+      until: result.status == 200
+      with_items: "{{ site_urls }}"
+
+    - name: Parse Results
+      set_fact:
+        site_statuses: "{{ site_statuses | default([]) + [ {'site': item.item, 'status_code': item.status} ] }}"
+      loop: "{{ result.results }}"
+
+    - name: Print Results
+      debug:
+        msg: "{{ site_statuses }}"
+
+    - name: Create output directory if it doesn't exist
+      file:
+        path: output
+        state: directory
+
+    - name: Generate HTML Report
+      template:
+        src: templates/report_template.html
+        dest: output/health_check_report.html
+
+    - name: Invia l'output come email HTML
+      mail:
+        host: "{{ mail_host }}"  # Indirizzo del server SMTP
+        port: "{{ mail_port }}"  # Porta del server SMTP
+        username: "{{ mail_username }}"  # Nome utente per l'autenticazione SMTP
+        password: "{{ mail_password }}"  # Password per l'autenticazione SMTP
+        to: "{{ mail_to }}"  # Indirizzo email del destinatario
+        cc: "{{ mail_cc }}"
+        sender: "{{ mail_sender }}"  # Indirizzo email del mittente
+        subject: "Report di controllo dello Stato dei siti presenti sul Cluster OCP Filice"  # Oggetto dell'email
+        body: "{{ lookup('file', 'output/health_check_report.html') }}"  # Contenuto HTML del corpo dell'email
+        subtype: html
+        charset: utf8
+      when: site_statuses | rejectattr('status_code', 'eq', 200) | list | length > 0

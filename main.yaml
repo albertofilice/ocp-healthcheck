@@ -1,22 +1,229 @@
 ---
-- name: Playbook OCP Health Check
+- name: Controlla lo stato del cluster OpenShift 4
   hosts: localhost
-
   vars:
-    elastic: "false"
-    ocp_user_token:
-    ocp_api_url:
-
-
-  environment:
-    KUBECONFIG: "{{ kubeconfig_file }}"
+    ocp_username: ""
+    ocp_password: ""
+    ocp_api_url: ""
+    mail_host: ""
+    mail_port: ""
+    mail_username: ""
+    mail_password: ""
+    mail_to: ""
+    mail_cc: ""
+    mail_sender: ""
 
   tasks:
+    - name: Imposta le credenziali di accesso
+      k8s_auth:
+        validate_certs: false
+        username: "{{ ocp_username }}"
+        password: "{{ ocp_password }}"
+        host: "{{ ocp_api_url }}"
 
-- name: Login into cluster
-  shell: |
-    oc login --token {{ ocp_user_token }} {{ ocp_api_url }} --insecure-skip-tls-verify
-  no_log: true
+      register: k8s_auth_results
+      no_log: true      
 
-  - name: OCP Health Check
-    import_tasks: healthcheck.yml
+    - name: Login into cluster
+      shell: |
+        oc login --token {{ k8s_auth_results.openshift_auth.api_key }} {{ k8s_auth_results.openshift_auth.host }} --insecure-skip-tls-verify
+      no_log: true
+
+    - name: Verifica la connessione al cluster
+      k8s_info:
+        kind: ClusterVersion
+        name: version
+      register: k8s_version
+      ignore_errors: true
+
+    - name: Verifica lo stato dei nodi del cluster
+      k8s_info:
+        kind: Node
+      register: k8s_nodes
+      ignore_errors: true
+
+    - name: Ottieni nomi dei nodi Openshift
+      command: oc get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'
+      register: oc_output
+      changed_when: false
+
+    - name: Controlla lo spazio disponibile sui nodi Openshift
+      shell: oc debug nodes/{{ item }} -- df -h --output=avail /
+      register: df_output
+      changed_when: false
+      loop: "{{ oc_output.stdout_lines }}"
+
+    # - name: Mostra lo spazio disponibile nei nodi
+    #   debug:
+    #     msg: "{{ (item.stdout | split('\n'))[1] | replace(' ', '') | replace('G', '') }}"
+    #   loop: "{{ df_output.results }}"  
+
+    - name: Estrai lo spazio disponibile dai risultati
+      set_fact:
+         available_space_nodes: "{{ available_space_nodes | default([]) + [(item.stdout | split('\n'))[1] | replace(' ', '') | replace('G', '')] }}"
+      loop: "{{ df_output.results }}"
+      when:
+        - item.rc == 0
+        - item.stdout_lines | length >= 2
+
+    - name: Mostra lo spazio disponibile nei nodi
+      debug:
+        var: available_space_nodes
+
+    - name: Imposta valore di soglia per lo spazio disponibile
+      set_fact:
+        threshold: 20  # Imposta il valore di soglia desiderato (in GB)
+
+    - name: Verifica lo spazio disponibile sui nodi
+      set_fact:
+        space_check_failed: "{{ available_space_nodes is defined and available_space_nodes | map('int') | min < threshold }}"        
+
+    - name: Verifica lo stato dei servizi di OpenShift
+      k8s_info:
+        kind: Pod
+        field_selectors:
+          - status.phase!=Running
+          - status.phase!=Completed
+          - status.phase!=Succeeded
+      register: k8s_pods
+      ignore_errors: true
+
+    # - name: Mostra lo stato dei servizi di OpenShift
+    #   debug:
+    #     var: k8s_pods.resources
+
+    - name: Verifica lo stato dei cluster operator
+      k8s_info:
+        kind: ClusterOperator
+        api_version: config.openshift.io/v1
+      register: k8s_cluster_operators
+      ignore_errors: true
+
+    # - name: Mostra lo stato dei cluster operator
+    #   debug:
+    #     var: k8s_cluster_operators.resources
+
+    - name: Verifica lo stato di CephBlockPool in ODF
+      k8s_info:
+        kind: CephBlockPool
+        api_version: ceph.rook.io/v1
+      register: k8s_ceph_status
+      ignore_errors: true
+
+    # - name: Mostra lo stato di CephBlockPool in ODF
+    #   debug:
+    #     var: k8s_ceph_status.resources
+
+    - name: Controlla lo stato di Ceph in ODF
+      k8s_info:
+        kind: Pod
+        api_version: v1
+        namespace: openshift-storage
+        label_selectors: "app=rook-ceph-operator"
+      register: k8s_ceph_operator_pods
+      ignore_errors: true
+
+    - name: Esegui il controllo dello stato di Ceph in ODF
+      shell:
+        cmd: oc exec -n openshift-storage -c rook-ceph-operator "{{ item }}" -- sh -c "ceph status --cluster=openshift-storage --conf=/var/lib/rook/openshift-storage/openshift-storage.config --keyring=/var/lib/rook/openshift-storage/client.admin.keyring"
+      register: ceph_status
+      with_items: "{{ k8s_ceph_operator_pods.resources | json_query('[].metadata.name') }}"
+      ignore_errors: true
+
+    - name: Esegui il controllo dello spazio disponibile in Ceph ODF
+      shell:
+        cmd: oc exec -n openshift-storage -c rook-ceph-operator "{{ item }}" -- sh -c "ceph df --cluster=openshift-storage --conf=/var/lib/rook/openshift-storage/openshift-storage.config --keyring=/var/lib/rook/openshift-storage/client.admin.keyring"
+      register: ceph_df
+      with_items: "{{ k8s_ceph_operator_pods.resources | json_query('[].metadata.name') }}"
+      ignore_errors: true
+
+    - name: Estrai lo spazio disponibile in Ceph ODF
+      set_fact:
+          available_space_ceph: "{{ ceph_df.results[0].stdout_lines | join('\n') | regex_findall('TOTAL\\s+\\d+\\s+GiB\\s+(\\d+\\s+GiB)') | first | replace(' GiB', '') }}"
+      when: ceph_df is defined
+
+    - name: Mostra lo spazio disponibile nel cluster
+      debug:
+        var: available_space_ceph
+
+    - name: Mostra lo spazio disponibile dei nodi
+      debug:
+        var: available_space_nodes        
+
+    - name: Definisci la variabile 'checks' in base ai risultati
+      set_fact:
+        checks: []
+
+    - name: Aggiungi i risultati dei check connessione al cluster
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica la connessione al cluster', 'status': 'failed' if (k8s_version.resources | regex_search('\\s*Cluster version is') is none) else 'passed'}] }}"
+      when: k8s_version is defined
+
+    - name: Aggiungi i risultati dei check dei nodi del cluster
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo stato dei nodi del cluster', 'status': 'failed' if k8s_nodes.rc is defined and k8s_nodes.rc != 0 else 'passed'}] }}"
+      when: k8s_version is defined      
+
+    - name: Aggiungi i risultati dei check dei servizi di OpenShift
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo stato dei servizi di OpenShift', 'status': 'failed' if k8s_pods.rc is defined and k8s_pods.rc != 0 else 'passed'}] }}"
+      when: k8s_pods is defined
+
+    - name: Aggiungi i risultati dei check dei cluster operator
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo stato dei cluster operator', 'status': 'failed' if k8s_cluster_operators.rc is defined and k8s_cluster_operators.rc != 0 else 'passed'}] }}"
+      when: k8s_cluster_operators is defined
+
+    - name: Aggiungi i risultati dei check dello stato di CephBlockPool in ODF
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo stato di CephBlockPool in ODF', 'status': 'failed' if k8s_ceph_status.rc is defined and k8s_ceph_status.rc != 0 else 'passed'}] }}"
+      when: k8s_ceph_status is defined
+
+    - name: Aggiungi i risultati dei check dello stato di Ceph in ODF
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo stato di Ceph in ODF', 'status': 'failed' if (ceph_status.results | selectattr('stdout_lines') | regex_search('\\s*HEALTH_OK') is none) else 'passed'}] }}"
+      when: ceph_status is defined
+
+    - name: Aggiungi il risultato del controllo dello spazio disponibile in Ceph ODF
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo spazio disponibile in Ceph ODF', 'status': 'failed' if (available_space_ceph is defined and available_space_ceph | int < 200) else 'passed'}] }}"
+      when: available_space_ceph is defined
+
+    - name: Aggiungi il risultato del controllo dello spazio disponibile sui nodi
+      set_fact:
+        checks: "{{ checks + [{'name': 'Verifica lo spazio disponibile sui nodi', 'status': 'failed' if space_check_failed else 'passed'}] }}"
+      when: available_space_nodes is defined
+
+    - name: Create output directory if it doesn't exist
+      file:
+        path: output
+        state: directory
+
+    - name: Genera output CSV
+      template:
+        src: templates/output.j2
+        dest: output/output.csv
+      when: checks is defined and checks | length > 0
+      ignore_errors: true
+
+    - name: Genera contenuto HTML
+      register: generate_output_html
+      template:
+        src: templates/template.html.j2
+        dest: output/output.html
+      when: checks is defined and checks | length > 0
+
+    - name: Invia l'output come email HTML
+      mail:
+        host: "{{ mail_host }}"  # Indirizzo del server SMTP
+        port: "{{ mail_port }}"  # Porta del server SMTP
+        username: "{{ mail_username }}"  # Nome utente per l'autenticazione SMTP
+        password: "{{ mail_password }}"  # Password per l'autenticazione SMTP
+        to: "{{ mail_to }}"  # Indirizzo email del destinatario
+        cc: "{{ mail_cc }}"
+        sender: "{{ mail_sender }}"  # Indirizzo email del mittente
+        subject: "Report di controllo dello Stato di OpenShift"  # Oggetto dell'email
+        body: "{{ lookup('file', 'output/output.html') }}"  # Contenuto HTML del corpo dell'email
+        subtype: html
+        charset: utf8        
+      when: checks is defined and checks | selectattr('status', 'eq', 'failed') | list | length > 0 and mail_host is defined
