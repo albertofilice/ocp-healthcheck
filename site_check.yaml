@@ -1,4 +1,4 @@
-- name: Playbook OCP Health Check
+- name: Playbook Site Check
   hosts: localhost
 
   vars:
@@ -46,17 +46,17 @@
         src: templates/report_template.html
         dest: output/health_check_report.html
 
-    - name: Invia l'output come email HTML
+    - name: Send the output as an HTML email
       mail:
-        host: "{{ mail_host }}"  # Indirizzo del server SMTP
-        port: "{{ mail_port }}"  # Porta del server SMTP
-        username: "{{ mail_username }}"  # Nome utente per l'autenticazione SMTP
-        password: "{{ mail_password }}"  # Password per l'autenticazione SMTP
-        to: "{{ mail_to }}"  # Indirizzo email del destinatario
+        host: "{{ mail_host }}"
+        port: "{{ mail_port }}"
+        username: "{{ mail_username }}"
+        password: "{{ mail_password }}"
+        to: "{{ mail_to }}"
         cc: "{{ mail_cc }}"
-        sender: "{{ mail_sender }}"  # Indirizzo email del mittente
-        subject: "Report di controllo dello Stato dei siti presenti sul Cluster OCP Filice"  # Oggetto dell'email
-        body: "{{ lookup('file', 'output/health_check_report.html') }}"  # Contenuto HTML del corpo dell'email
+        sender: "{{ mail_sender }}"
+        subject: "Site Status Monitoring Report"
+        body: "{{ lookup('file', 'output/health_check_report.html') }}"
         subtype: html
         charset: utf8
       when: site_statuses | rejectattr('status_code', 'eq', 200) | list | length > 0
