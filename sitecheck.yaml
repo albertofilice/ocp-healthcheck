@@ -2,7 +2,9 @@
   hosts: localhost
 
   vars:
-    site_urls: ""
+    site_urls:
+      - 'example.com'
+      - 'example.it'
     mail_host: ""
     mail_port: ""
     mail_username: ""
