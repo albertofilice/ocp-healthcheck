@@ -13,10 +13,6 @@
     mail_cc: ""
     mail_sender: ""
 
-  collections:
-    - name: kubernetes.core
-    - name: community.general  # Questo include il modulo mail usato nel playbook
-
   tasks:
     - name: Set up login credentials
       kubernetes.core.k8s_auth:
