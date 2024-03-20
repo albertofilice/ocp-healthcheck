@@ -15,7 +15,7 @@
 
   tasks:
     - name: Set up login credentials
-      kubernetes.core.k8s_auth:
+      k8s_auth:
         validate_certs: false
         username: "{{ ocp_username }}"
         password: "{{ ocp_password }}"
@@ -29,14 +29,14 @@
       no_log: true
 
     - name: Verify the connection to the cluster
-      kubernetes.core.k8s_info:
+      k8s_info:
         kind: ClusterVersion
         name: version
       register: k8s_version
       ignore_errors: true
 
     - name: Checks the status of cluster nodes
-      kubernetes.core.k8s_info:
+      k8s_info:
         kind: Node
       register: k8s_nodes
       ignore_errors: true
@@ -69,7 +69,7 @@
         space_check_failed: "{{ available_space_nodes is defined and available_space_nodes | map('int') | min < threshold }}"        
 
     - name: Check the status of OpenShift services
-      kubernetes.core.k8s_info:
+      k8s_info:
         kind: Pod
         field_selectors:
           - status.phase!=Running
@@ -79,21 +79,21 @@
       ignore_errors: true
 
     - name: Check the status of cluster operators
-      kubernetes.core.k8s_info:
+      k8s_info:
         kind: ClusterOperator
         api_version: config.openshift.io/v1
       register: k8s_cluster_operators
       ignore_errors: true
 
     - name: Check the status of CephBlockPool in ODF
-      kubernetes.core.k8s_info:
+      k8s_info:
         kind: CephBlockPool
         api_version: ceph.rook.io/v1
       register: k8s_ceph_status
       ignore_errors: true
 
     - name: Check the status of Ceph in ODF
-      kubernetes.core.k8s_info:
+      k8s_info:
         kind: Pod
         api_version: v1
         namespace: openshift-storage
