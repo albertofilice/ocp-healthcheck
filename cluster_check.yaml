@@ -117,7 +117,7 @@
 
     - name: Extract the available space in Ceph ODF
       set_fact:
-          available_space_ceph: "{{ ceph_df.results[0].stdout_lines | join('\n') | regex_findall('TOTAL\\s+\\d+\\s+GiB\\s+(\\d+\\s+GiB)') | first | replace(' GiB', '') }}"
+          available_space_ceph: "{{ ceph_df.stdout_lines | join('\n') | regex_findall('TOTAL\\s+\\d+\\s+GiB\\s+(\\d+\\s+GiB)') | first | replace(' GiB', '') }}"
       when: ceph_df is defined
 
     - name: Define the variable 'checks' based on the results
