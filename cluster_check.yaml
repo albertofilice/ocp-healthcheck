@@ -120,6 +120,36 @@
           available_space_ceph: "{{ ceph_df.results[0].stdout_lines | join('\n') | regex_findall('TOTAL\\s+\\d+\\.?\\d*\\s+\\w+\\s+(\\d+\\.?\\d*\\s+\\w+)') | first | regex_replace('\\s+\\w+', '') }}"
       when: ceph_df is defined
 
+    - name: Extract the available space raw and unit in Ceph ODF
+      set_fact:
+        available_space_raw: "{{ ceph_df.results[0].stdout_lines | join('\n') | regex_findall('TOTAL\\s+\\d+\\.?\\d*\\s+\\w+\\s+(\\d+\\.?\\d*\\s+\\w+)') | first }}"
+
+    - name: Setup Available space value
+      set_fact:
+        available_space_value: "{{ available_space_raw.split(' ', 1)[0] | float }}"
+
+    - name: Setup Available space unit
+      set_fact:
+        available_space_unit: "{{ available_space_raw.split(' ', 1)[1] }}"
+
+    - name: Convert TiB to GiB if necessary
+      set_fact:
+        available_space_ceph_gib: "{{ (available_space_value | float * 1024) | round(2) }}"
+      when: available_space_unit == 'TiB'
+
+    - name: Convert MiB to GiB
+      set_fact:
+        available_space_ceph_gib: "{{ (available_space_value | float / 1024) | round(2) }}"
+      when: available_space_unit == 'MiB'
+
+    - name: Keep GiB as is
+      set_fact:
+        available_space_ceph_gib: "{{ available_space_value | float | round(2) }}"
+      when: available_space_unit == 'GiB'
+
+    - debug:
+        var: available_space_ceph_gib
+
     - name: Define the variable 'checks' based on the results
       set_fact:
         checks: []
@@ -156,8 +186,8 @@
 
     - name: Add the result of checking the available space in Ceph ODF
       set_fact:
-        checks: "{{ checks + [{'name': 'Checks the available space in Ceph ODF', 'status': 'failed' if (available_space_ceph is defined and available_space_ceph | int < 200) else 'passed'}] }}"
-      when: available_space_ceph is defined
+        checks: "{{ checks + [{'name': 'Checks the available space in Ceph ODF', 'status': 'failed' if (available_space_ceph_gib is defined and available_space_ceph_gib | int < 200) else 'passed'}] }}"
+      when: available_space_ceph_gib is defined
 
     - name: Add the result of checking the available space on the nodes
       set_fact:
