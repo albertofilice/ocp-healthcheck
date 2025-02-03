@@ -50,7 +50,7 @@
         state: present
 
     - name: Checks the status of cluster nodes
-      redhat.openshift.k8s:
+      kubernetes.core.k8s_info:
         kind: Node
       register: k8s_nodes
       ignore_errors: true
