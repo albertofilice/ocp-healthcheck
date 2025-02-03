@@ -18,12 +18,7 @@
       host: "{{ ocp_api_url }}"
       username: "{{ ocp_username }}"
       password: "{{ ocp_password }}"
-      validate_certs: false   
-    k8s_auth: &k8s_auth
-      host: "{{ ocp_api_url }}"
-      username: "{{ ocp_username }}"
-      password: "{{ ocp_password }}"
-      verify_ssl: false
+      validate_certs: false
 
   collections:
     - kubernetes.core
@@ -84,7 +79,6 @@
 
     - name: Check the status of OpenShift services
       kubernetes.core.k8s_info:
-        <<: *k8s_auth
         kind: Pod
         field_selectors:
           - status.phase!=Running
@@ -95,7 +89,6 @@
 
     - name: Check the status of cluster operators
       kubernetes.core.k8s_info:
-        <<: *k8s_auth
         kind: ClusterOperator
         api_version: config.openshift.io/v1
       register: k8s_cluster_operators
@@ -103,7 +96,6 @@
 
     - name: Check the status of CephBlockPool in ODF
       kubernetes.core.k8s_info:
-        <<: *k8s_auth
         kind: CephBlockPool
         api_version: ceph.rook.io/v1
       register: k8s_ceph_status
@@ -111,7 +103,6 @@
 
     - name: Check the status of Ceph in ODF
       kubernetes.core.k8s_info:
-        <<: *k8s_auth
         kind: Pod
         api_version: v1
         namespace: openshift-storage
