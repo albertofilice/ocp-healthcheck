@@ -7,6 +7,7 @@
     ocp_username: "{{ lookup('env', 'OCP_USERNAME') }}"
     ocp_password: "{{ lookup('env', 'OCP_PASSWORD') }}"
     ocp_api_url: "{{ lookup('env', 'OCP_API_URL') }}"
+    ocp_api_key: "{{ lookup('env', 'OCP_API_KEY') }}"
     mail_host: "{{ lookup('env', 'MAIL_HOST') }}"
     mail_port: "{{ lookup('env', 'MAIL_PORT') }}"
     mail_username: "{{ lookup('env', 'MAIL_USERNAME') }}"
