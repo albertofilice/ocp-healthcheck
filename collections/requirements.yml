@@ -4,3 +4,5 @@ collections:
     version: 5.1.0
   - name: community.general 
     version: 7.0.0
+  - name: redhat.openshift
+    version: 4.0.1    

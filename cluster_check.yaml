@@ -20,12 +20,27 @@
     - community.general
 
   tasks:
+
+    - name: Authenticate with token, and return all pods and services for all namespaces
+      plugin: redhat.openshift.openshift
+      connections:
+        - host: "{{ ocp_api_url }}"
+          username: "{{ ocp_username }}"
+          password: "{{ ocp_password }}"
+          verify_ssl: false
+      register: ocp_auth_results    
+
+    - name: Debug ocp_auth_results
+      ansible.builtin.debug:
+        var: ocp_auth_results
+
     - name: Set up login credentials
-      kubernetes.core.k8s_auth:
-        validate_certs: false
-        username: "{{ ocp_username }}"
-        password: "{{ ocp_password }}"
-        host: "{{ ocp_api_url }}"
+      plugin: kubernetes.core.k8s_auth
+      connections:
+        - host: "{{ ocp_api_url }}"
+          username: "{{ ocp_username }}"
+          password: "{{ ocp_password }}"
+          verify_ssl: false
       register: k8s_auth_results
       no_log: true      
 
