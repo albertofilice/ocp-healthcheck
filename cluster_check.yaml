@@ -14,20 +14,27 @@
     mail_to: "{{ lookup('env', 'MAIL_TO') }}"
     mail_cc: "{{ lookup('env', 'MAIL_CC') }}"
     mail_sender: "{{ lookup('env', 'MAIL_SENDER') }}"
+    ocp_auth: &ocp_auth
+      host: "{{ ocp_api_url }}"
+      username: "{{ ocp_username }}"
+      password: "{{ ocp_password }}"
+      validate_certs: false   
+    k8s_auth: &k8s_auth
+      host: "{{ ocp_api_url }}"
+      username: "{{ ocp_username }}"
+      password: "{{ ocp_password }}"
+      verify_ssl: false
 
   collections:
     - kubernetes.core
     - community.general
-
+    - redhat.openshift
   tasks:
-    - name: Set up login credentials
-      kubernetes.core.k8s_auth:
-        host: "{{ ocp_api_url }}"
-        username: "{{ ocp_username }}"
-        password: "{{ ocp_password }}"
-        verify_ssl: false
+    - name: Set up login credentials (OpenShift)
+      redhat.openshift.openshift_auth:
+        <<: *ocp_auth
       register: k8s_auth_results
-      no_log: true      
+      no_log: true
 
     - name: Login into cluster
       ansible.builtin.shell: |
@@ -36,6 +43,7 @@
 
     - name: Verify the connection to the cluster
       kubernetes.core.k8s_info:
+        <<: *k8s_auth
         kind: ClusterVersion
         name: version
       register: k8s_version
@@ -43,6 +51,7 @@
 
     - name: Checks the status of cluster nodes
       kubernetes.core.k8s_info:
+        <<: *k8s_auth
         kind: Node
       register: k8s_nodes
       ignore_errors: true
@@ -76,6 +85,7 @@
 
     - name: Check the status of OpenShift services
       kubernetes.core.k8s_info:
+        <<: *k8s_auth
         kind: Pod
         field_selectors:
           - status.phase!=Running
@@ -86,6 +96,7 @@
 
     - name: Check the status of cluster operators
       kubernetes.core.k8s_info:
+        <<: *k8s_auth
         kind: ClusterOperator
         api_version: config.openshift.io/v1
       register: k8s_cluster_operators
@@ -93,6 +104,7 @@
 
     - name: Check the status of CephBlockPool in ODF
       kubernetes.core.k8s_info:
+        <<: *k8s_auth
         kind: CephBlockPool
         api_version: ceph.rook.io/v1
       register: k8s_ceph_status
@@ -100,6 +112,7 @@
 
     - name: Check the status of Ceph in ODF
       kubernetes.core.k8s_info:
+        <<: *k8s_auth
         kind: Pod
         api_version: v1
         namespace: openshift-storage
