@@ -116,6 +116,7 @@
       register: ceph_status
       with_items: "{{ k8s_ceph_operator_pods.resources | json_query('[].metadata.name') }}"
       ignore_errors: true
+      when: k8s_ceph_operator_pods.resources | length > 0
 
     - name: Run the available space check in Ceph ODF
       ansible.builtin.shell:
@@ -123,11 +124,15 @@
       register: ceph_df
       with_items: "{{ k8s_ceph_operator_pods.resources | json_query('[].metadata.name') }}"
       ignore_errors: true
+      when: k8s_ceph_operator_pods.resources | length > 0
 
     - name: Extract the available space in Ceph ODF
       ansible.builtin.set_fact:
           available_space_ceph: "{{ ceph_df.results[0].stdout_lines | join('\n') | regex_findall('TOTAL\\s+\\d+\\.?\\d*\\s+\\w+\\s+(\\d+\\.?\\d*\\s+\\w+)') | first | regex_replace('\\s+\\w+', '') }}"
-      when: ceph_df is defined
+      when: 
+        - ceph_df is defined 
+        - ceph_df.results is defined
+        - ceph_df.results | length > 0
 
     - name: Extract the available space raw and unit in Ceph ODF
       ansible.builtin.set_fact:
