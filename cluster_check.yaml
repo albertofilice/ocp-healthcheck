@@ -42,18 +42,15 @@
       ansible.builtin.shell: |
         oc login --token {{ k8s_auth_results.openshift_auth.api_key }} {{ k8s_auth_results.openshift_auth.host }} --insecure-skip-tls-verify
       
-
     - name: Verify the connection to the cluster
-      kubernetes.core.k8s_info:
-        <<: *k8s_auth
-        kind: ClusterVersion
-        name: version
-      register: k8s_version
-      ignore_errors: true
+      redhat.openshift.k8s:
+        name: default
+        api_version: v1
+        kind: Namespace
+        state: present
 
     - name: Checks the status of cluster nodes
-      kubernetes.core.k8s_info:
-        <<: *k8s_auth
+      redhat.openshift.k8s:
         kind: Node
       register: k8s_nodes
       ignore_errors: true
