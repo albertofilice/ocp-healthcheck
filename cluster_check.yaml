@@ -16,8 +16,9 @@
     mail_sender: "{{ lookup('env', 'MAIL_SENDER') }}"
     ocp_auth: &ocp_auth
       host: "{{ ocp_api_url }}"
-      username: "{{ ocp_username }}"
-      password: "{{ ocp_password }}"
+      username: "{{ ocp_username if not ocp_api_key else omit }}"
+      password: "{{ ocp_password if not ocp_api_key else omit }}"
+      api_key: "{{ ocp_api_key }}"
       validate_certs: false
 
   collections:
