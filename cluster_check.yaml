@@ -1,6 +1,8 @@
 ---
 - name: Check the status of the OpenShift 4 cluster
   hosts: localhost
+  gather_facts: false
+  connection: local  
   vars:
     ocp_username: "{{ lookup('env', 'OCP_USERNAME') }}"
     ocp_password: "{{ lookup('env', 'OCP_PASSWORD') }}"
