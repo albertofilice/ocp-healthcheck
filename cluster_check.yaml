@@ -250,6 +250,15 @@
         dest: output/output.html
       when: checks is defined and checks | length > 0
 
+    - name: Mostra l'output dei controlli in formato tabella
+      ansible.builtin.debug:
+        msg: |
+          Risultati dei controlli:
+          {% for check in checks %}
+          {{ '%3d' | format(loop.index) }}. {{ '%-50s' | format(check.name) }} [{{ check.status }}]
+          {% endfor %}
+      when: checks is defined and checks | length > 0
+
     - name: Send the output as an HTML email
       community.general.mail:
         host: "{{ mail_host }}"
