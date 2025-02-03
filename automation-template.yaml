@@ -1,0 +1,30 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: ClusterCurator
+metadata:
+  name: healthcheck
+  namespace: aap
+spec:
+  install:
+    posthook:
+      - name: Health Check Cluster
+        extra_vars:
+          ocp_api_key: '{{ fromSecret "aap" "aap-integrations" "token" | base64dec }}'
+          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
+        type: Job
+    prehook: []
+    towerAuthSecret: aap-integrations
+  inventory: default
+  upgrade:
+    posthook:
+      - name: Health Check Cluster
+        extra_vars:
+          ocp_api_key: '{{ fromSecret "aap" "aap-integrations" "token" | base64dec }}'
+          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
+        type: Job
+    prehook:
+      - name: Health Check Cluster
+        extra_vars:
+          ocp_api_key: '{{ fromSecret "aap" "aap-integrations" "token" | base64dec }}'
+          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
+        type: Job
+    towerAuthSecret: aap-integrations
