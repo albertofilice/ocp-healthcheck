@@ -3,20 +3,24 @@
 
   vars:
     site_urls:
-      - 'example.com'
-      - 'example.it'
-    mail_host: ""
-    mail_port: ""
-    mail_username: ""
-    mail_password: ""
-    mail_to: ""
-    mail_cc: ""
-    mail_sender: ""    
+      - site1.example.com
+      - site2.example.com
+      - site3.example.com
+    mail_host: "{{ lookup('env', 'MAIL_HOST') }}"
+    mail_port: "{{ lookup('env', 'MAIL_PORT') }}"
+    mail_username: "{{ lookup('env', 'MAIL_USERNAME') }}"
+    mail_password: "{{ lookup('env', 'MAIL_PASSWORD') }}"
+    mail_to: "{{ lookup('env', 'MAIL_TO') }}"
+    mail_cc: "{{ lookup('env', 'MAIL_CC') }}"
+    mail_sender: "{{ lookup('env', 'MAIL_SENDER') }}"
+
+  collections:
+    - community.general
 
   tasks:
 
     - name: Health, readiness and info check
-      uri:
+      ansible.builtin.uri:
         url: 'https://{{ item }}'
         status_code: 200
         return_content: no
@@ -28,26 +32,26 @@
       with_items: "{{ site_urls }}"
 
     - name: Parse Results
-      set_fact:
+      ansible.builtin.set_fact:
         site_statuses: "{{ site_statuses | default([]) + [ {'site': item.item, 'status_code': item.status} ] }}"
       loop: "{{ result.results }}"
 
     - name: Print Results
-      debug:
+      ansible.builtin.debug:
         msg: "{{ site_statuses }}"
 
     - name: Create output directory if it doesn't exist
-      file:
+      ansible.builtin.file:
         path: output
         state: directory
 
     - name: Generate HTML Report
-      template:
+      ansible.builtin.template:
         src: templates/report_template.html
         dest: output/health_check_report.html
 
     - name: Send the output as an HTML email
-      mail:
+      community.general.mail:
         host: "{{ mail_host }}"
         port: "{{ mail_port }}"
         username: "{{ mail_username }}"
