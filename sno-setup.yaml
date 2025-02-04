@@ -1,6 +1,6 @@
 ---
 - name: Configura static host entry per SNO su libvirt
-  hosts: localhost # Modificato per eseguire su tutti gli host remoti
+  hosts: lab
   become: true
   vars:
     sno_name: sno2
