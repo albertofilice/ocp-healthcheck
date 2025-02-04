@@ -1,13 +1,24 @@
 ---
 - name: Configura static host entry per SNO su libvirt
-  hosts: localhost
+  hosts: all # Modificato per eseguire su tutti gli host remoti
   become: true
+  vars:
+    sno_name: sno2
+    sno_mac: "52:54:00:6b:56:45"
+    sno_domain: ocp4.lab.filice.eu
+    sno_ip: "192.168.100.12"
+    network_name: baremetal
+    dnsmasq_conf: /etc/NetworkManager/dnsmasq.d/openshift.conf
+    ansible_connection: ssh # Aggiunto per connessione SSH
+    ansible_user: "{{ lookup('env', 'REMOTE_USER') }}" # Username per SSH
+    ansible_ssh_private_key_file: "{{ lookup('env', 'SSH_KEY_FILE') }}" # Chiave SSH
+
   tasks:
-    - name: Aggiungi static host entry per SNO2
+    - name: Aggiungi static host entry per {{ sno_name }}
       ansible.builtin.command:
         cmd: >
-          virsh net-update baremetal add ip-dhcp-host 
-          "<host mac='52:54:00:6b:56:45' name='sno2.ocp4.lab.filice.eu' ip='192.168.100.12'/>"
+          virsh net-update {{ network_name }} add ip-dhcp-host 
+          "<host mac='{{ sno_mac }}' name='{{ sno_name }}.{{ sno_domain }}' ip='{{ sno_ip }}'/>"
           --live --config
       register: update_result
       changed_when: update_result.rc == 0
@@ -17,13 +28,13 @@
       ansible.builtin.debug:
         var: update_result.stdout
 
-    - name: Aggiungi configurazione DNS per SNO2
+    - name: Aggiungi configurazione DNS per {{ sno_name }}
       ansible.builtin.blockinfile:
-        path: /etc/NetworkManager/dnsmasq.d/openshift.conf
+        path: "{{ dnsmasq_conf }}"
         block: |
-          address=/api.sno2.ocp4.lab.filice.eu/192.168.100.12
-          address=/.apps.sno2.ocp4.lab.filice.eu/192.168.100.12
-        marker: "# {mark} ANSIBLE MANAGED BLOCK SNO2"
+          address=/api.{{ sno_name }}.{{ sno_domain }}/{{ sno_ip }}
+          address=/.apps.{{ sno_name }}.{{ sno_domain }}/{{ sno_ip }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ sno_name | upper }}"
       notify: Riavvia NetworkManager
 
   handlers:
@@ -31,4 +42,3 @@
       ansible.builtin.service:
         name: NetworkManager
         state: restarted
-
