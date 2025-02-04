@@ -30,6 +30,7 @@
     - name: Set up login credentials (OpenShift)
       redhat.openshift.openshift_auth:
         <<: *ocp_auth
+        state: present
       register: k8s_auth_results
 
     - debug:

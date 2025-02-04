@@ -1,30 +1,68 @@
-apiVersion: cluster.open-cluster-management.io/v1beta1
-kind: ClusterCurator
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
 metadata:
-  name: healthcheck
-  namespace: aap
+  name: automation-template
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+  creationTimestamp: 2025-02-03T23:21:27Z
+  generation: 1
+  managedFields:
+  resourceVersion: "5513846"
+  uid: b40e7511-124d-4877-b664-d6f9189a99a5
 spec:
-  install:
-    posthook:
-      - name: Health Check Cluster
-        extra_vars:
-          ocp_api_key: '{{ fromSecret "aap" "aap-integrations" "token" | base64dec }}'
-          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
-        type: Job
-    prehook: []
-    towerAuthSecret: aap-integrations
-  inventory: default
-  upgrade:
-    posthook:
-      - name: Health Check Cluster
-        extra_vars:
-          ocp_api_key: '{{ fromSecret "aap" "aap-integrations" "token" | base64dec }}'
-          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
-        type: Job
-    prehook:
-      - name: Health Check Cluster
-        extra_vars:
-          ocp_api_key: '{{ fromSecret "aap" "aap-integrations" "token" | base64dec }}'
-          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
-        type: Job
-    towerAuthSecret: aap-integrations
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: policy-automation-template
+        spec:
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: cluster.open-cluster-management.io/v1beta1
+                kind: ClusterCurator
+                metadata:
+                  name: healthcheck-{{ fromClusterClaim "cluster-name" }}
+                  namespace: aap
+                spec:
+                  install:
+                    posthook:
+                      - name: Health Check Cluster
+                        extra_vars:
+                          ocp_api_key: '{{ fromSecret "aap" "secret-sa-aap" "token" | base64dec }}'
+                          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
+                        type: Job
+                    prehook: []
+                    towerAuthSecret: secret-sa-aap
+                  inventory: default
+                  upgrade:
+                    posthook:
+                      - name: Health Check Cluster
+                        extra_vars:
+                          ocp_api_key: '{{ fromSecret "aap" "secret-sa-aap" "token" | base64dec }}'
+                          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
+                        type: Job
+                    prehook:
+                      - name: Health Check Cluster
+                        extra_vars:
+                          ocp_api_key: '{{ fromSecret "aap" "secret-sa-aap" "token" | base64dec }}'
+                          ocp_api_url: '{{ fromClusterClaim "apiserverurl.openshift.io" }}'
+                        type: Job
+                    towerAuthSecret: secret-sa-aap
+          remediationAction: enforce
+          severity: low
+status:
+  compliant: Compliant
+  placement:
+    - placement: hub-placement
+      placementBinding: hub-placement
+      policySet: hub
+  status:
+    - clustername: local-cluster
+      clusternamespace: local-cluster
+      compliant: Compliant
