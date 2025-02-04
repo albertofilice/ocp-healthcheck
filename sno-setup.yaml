@@ -10,15 +10,7 @@
     network_name: baremetal
     dnsmasq_conf: /etc/NetworkManager/dnsmasq.d/openshift.conf
 
-  tasks:
-    - name: Stampa tutte le variabili di Ansible
-      debug:
-        var: ansible_facts  # Stampa tutte le informazioni sui fatti raccolti
-
-    - name: Stampa tutte le variabili di ambiente
-      debug:
-        var: lookup('env', '')  # Stampa le variabili di ambiente
-        
+  tasks:        
     - name: Aggiungi static host entry per {{ sno_name }}
       ansible.builtin.command:
         cmd: >
