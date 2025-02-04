@@ -10,10 +10,18 @@
     network_name: baremetal
     dnsmasq_conf: /etc/NetworkManager/dnsmasq.d/openshift.conf
     ansible_connection: ssh # Aggiunto per connessione SSH
-    ansible_user: '{{ ansible_user }}'
-    ansible_ssh_private_key_file: '{{ ansible_ssh_private_key_file }}'
+    ansible_user: "{{ lookup('env', 'ANSIBLE_USER') }}"
+    ansible_ssh_private_key_file: "{{ lookup('env', 'ANSIBLE_SSH_PRIVATE_KEY_FILE') }}"
 
   tasks:
+    - name: Stampa tutte le variabili di Ansible
+      debug:
+        var: ansible_facts  # Stampa tutte le informazioni sui fatti raccolti
+
+    - name: Stampa tutte le variabili di ambiente
+      debug:
+        var: lookup('env', '')  # Stampa le variabili di ambiente
+        
     - name: Aggiungi static host entry per {{ sno_name }}
       ansible.builtin.command:
         cmd: >
