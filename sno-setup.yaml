@@ -1,0 +1,34 @@
+---
+- name: Configura static host entry per SNO su libvirt
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Aggiungi static host entry per SNO2
+      ansible.builtin.command:
+        cmd: >
+          virsh net-update baremetal add ip-dhcp-host 
+          "<host mac='52:54:00:6b:56:45' name='sno2.ocp4.lab.filice.eu' ip='192.168.100.12'/>"
+          --live --config
+      register: update_result
+      changed_when: update_result.rc == 0
+      failed_when: update_result.rc != 0
+
+    - name: Mostra il risultato dell'operazione
+      ansible.builtin.debug:
+        var: update_result.stdout
+
+    - name: Aggiungi configurazione DNS per SNO2
+      ansible.builtin.blockinfile:
+        path: /etc/NetworkManager/dnsmasq.d/openshift.conf
+        block: |
+          address=/api.sno2.ocp4.lab.filice.eu/192.168.100.12
+          address=/.apps.sno2.ocp4.lab.filice.eu/192.168.100.12
+        marker: "# {mark} ANSIBLE MANAGED BLOCK SNO2"
+      notify: Riavvia NetworkManager
+
+  handlers:
+    - name: Riavvia NetworkManager 
+      ansible.builtin.service:
+        name: NetworkManager
+        state: restarted
+
