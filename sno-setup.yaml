@@ -19,7 +19,7 @@
           --live --config
       register: update_result
       changed_when: update_result.rc == 0
-      failed_when: update_result.rc != 0
+      failed_when: update_result.rc != 0 and 'existing dhcp host entry' not in update_result.stderr
 
     - name: Mostra il risultato dell'operazione
       ansible.builtin.debug:
@@ -32,6 +32,8 @@
           address=/api.{{ sno_name }}.{{ sno_domain }}/{{ sno_ip }}
           address=/.apps.{{ sno_name }}.{{ sno_domain }}/{{ sno_ip }}
         marker: "# {mark} ANSIBLE MANAGED BLOCK {{ sno_name | upper }}"
+        create: yes
+        force: yes
       notify: Riavvia NetworkManager
 
   handlers:
