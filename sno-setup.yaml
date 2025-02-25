@@ -23,6 +23,10 @@
         state: present
       register: k8s_auth_results  
 
+    - name: Login into cluster
+      ansible.builtin.shell: |
+        oc login --token {{ k8s_auth_results.openshift_auth.api_key }} {{ k8s_auth_results.openshift_auth.host }} --insecure-skip-tls-verify
+
     - name: Aggiungi static host entry per {{ sno_name }}
       ansible.builtin.command:
         cmd: >
@@ -50,28 +54,28 @@
       when: dns_check.rc != 0
       notify: Riavvia NetworkManager
  
-    - name: Modifica ClusterDeployment
-      kubernetes.core.k8s:
-        state: present
-        kind: ClusterDeployment
-        api_version: hive.openshift.io/v1
-        namespace: sno2
-        name: sno2
-        definition:
-          metadata:
-            annotations:
-              hive.openshift.io/reconcile-pause: "false"
+    # - name: Modifica ClusterDeployment
+    #   kubernetes.core.k8s:
+    #     state: present
+    #     kind: ClusterDeployment
+    #     api_version: hive.openshift.io/v1
+    #     namespace: sno2
+    #     name: sno2
+    #     definition:
+    #       metadata:
+    #         annotations:
+    #           hive.openshift.io/reconcile-pause: "false"
 
-    - name: Modifica ClusterDeployment
-      kubernetes.core.k8s:
-        state: present
-        kind: AgentClusterInstall
-        api_version: extensions.hive.openshift.io/v1beta1
-        namespace: sno2
-        name: sno2
-        definition:
-          spec:
-            holdInstallation: false
+    # - name: Modifica AgentClusterInstall
+    #   kubernetes.core.k8s:
+    #     state: present
+    #     kind: AgentClusterInstall
+    #     api_version: extensions.hive.openshift.io/v1beta1
+    #     namespace: sno2
+    #     name: sno2
+    #     definition:
+    #       spec:
+    #         holdInstallation: false
 
   handlers:
     - name: Riavvia NetworkManager 
