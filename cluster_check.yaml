@@ -26,6 +26,17 @@
     - community.general
     - redhat.openshift
   tasks:
+
+    - name: Flat Variables
+      ansible.builtin.set_fact:
+        vms: "{{ input_vms.splitlines() | map('lower') | replace('_','-') }}"
+
+    - debug:
+        msg: "{{ input_vms }}"
+
+    - debug:
+        msg: "{{ vms }}"        
+
     - name: Set up login credentials (OpenShift)
       redhat.openshift.openshift_auth:
         <<: *ocp_auth
